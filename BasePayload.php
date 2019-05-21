@@ -27,10 +27,11 @@ abstract class BasePayload implements PayloadInterface
   /**
    * BasePayload constructor.
    * @param array $params
+   * @throws \InvalidArgumentException
    */
-  function __construct(array $params = [])
+  public function __construct(array $params = [])
   {
-    if ($params) foreach ($params as $property => $value) {
+    foreach ($params as $property => $value) {
       $this->{$property} = $value;
     }
 

@@ -6,7 +6,6 @@ use ilepilin\queue\QueuePayload;
 
 interface DriverInterface
 {
-
   /**
    * Уникальный код драйвера
    * @return string
@@ -26,6 +25,7 @@ interface DriverInterface
   public function pop($queueName);
 
   /**
+   * Закрыть соединение
    * @return bool
    */
   public function close();

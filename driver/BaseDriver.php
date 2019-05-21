@@ -2,7 +2,6 @@
 
 namespace ilepilin\queue\driver;
 
-use InvalidArgumentException;
 use ilepilin\queue\QueuePayload;
 
 abstract class BaseDriver implements DriverInterface
@@ -10,9 +9,9 @@ abstract class BaseDriver implements DriverInterface
   /**
    * @throws \InvalidArgumentException
    */
-  function __construct(array $params = [])
+  public function __construct(array $params = [])
   {
-    if ($params) foreach ($params as $property => $value) {
+    foreach ($params as $property => $value) {
       $this->{$property} = $value;
     }
 

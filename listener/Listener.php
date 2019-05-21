@@ -41,7 +41,7 @@ class Listener implements ListenerInterface
    * @param string $driverCode
    * @return bool
    */
-  public function listen($driverCode)
+  public function handle($driverCode)
   {
     $driver = $this->facade->getDriver($driverCode);
 

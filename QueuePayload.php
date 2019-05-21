@@ -75,6 +75,7 @@ class QueuePayload
   /**
    * QueuePayload constructor.
    * @param array $params
+   * @throws \InvalidArgumentException
    */
   public function __construct($params = [])
   {

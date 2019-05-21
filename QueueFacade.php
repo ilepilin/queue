@@ -22,7 +22,7 @@ class QueueFacade
   /**
    * QueueFacade constructor.
    * @param array $params
-   * @throws Exception
+   * @throws \InvalidArgumentException
    */
   public function __construct($params = [])
   {
