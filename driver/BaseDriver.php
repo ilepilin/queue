@@ -5,9 +5,8 @@ namespace ilepilin\queue\driver;
 use InvalidArgumentException;
 use ilepilin\queue\QueuePayload;
 
-abstract class AbstractDriver implements DriverInterface
+abstract class BaseDriver implements DriverInterface
 {
-
   /**
    * @throws \InvalidArgumentException
    */
@@ -20,12 +19,14 @@ abstract class AbstractDriver implements DriverInterface
     $this->init();
   }
 
-  abstract protected function init();
+  public function init()
+  {
+  }
 
   /**
-   * @inheritdoc
-   * TRICKY Если задачу не удалось добавить в рабит, но удалось добавить в резервную очередь в БД, то метод вернет true,
-   * так как задача не утеряна и будет выполнена в будущем
+   * @param string $queueName
+   * @param QueuePayload $payload
+   * @return bool
    */
   final public function push($queueName, QueuePayload $payload)
   {
@@ -33,7 +34,6 @@ abstract class AbstractDriver implements DriverInterface
   }
 
   /**
-   * Добавить задачу в очередь
    * @param string $queueName
    * @param QueuePayload $payload
    * @return bool

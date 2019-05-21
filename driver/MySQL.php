@@ -7,7 +7,7 @@ use ilepilin\queue\QueuePayload;
 use PDO;
 use Exception;
 
-class MySQL extends AbstractDriver
+class MySQL extends BaseDriver
 {
   const DRIVER_CODE = 'mysql';
 
@@ -127,10 +127,10 @@ VALUES
 
   /**
    * Восстановить данные из БД в очередь через другой драйвер
-   * @param AbstractDriver $driver
+   * @param BaseDriver $driver
    * @throws Exception
    */
-  public function recoverAll(AbstractDriver $driver)
+  public function recoverAll(BaseDriver $driver)
   {
     $tableName = static::tableName();
     $tasksQuery = $this->getPdo()->prepare("SELECT * FROM $tableName WHERE rabbit_code = :rabbitCode");

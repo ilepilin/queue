@@ -5,7 +5,7 @@ namespace ilepilin\queue\driver;
 use ilepilin\queue\log\DriverLogWriter;
 use ilepilin\queue\QueuePayload;
 
-class FakeQueue extends AbstractDriver
+class FakeQueue extends BaseDriver
 {
   const DRIVER_CODE = 'fake';
   /**

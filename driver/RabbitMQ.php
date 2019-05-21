@@ -9,9 +9,12 @@ use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Wire\AMQPTable;
 
-class RabbitMQ extends AbstractDriver
+class RabbitMQ extends BaseDriver
 {
-  const DRIVER_CODE = 'rabbit_mq';
+  const DRIVER_CODE = 'amqp';
+
+  const DELIVERY_MODE_DURABLE = 2;
+  const DELAYED_EXCHANGE_NAME = 'delayed_exchange';
 
   public $host;
   public $port;
@@ -29,9 +32,6 @@ class RabbitMQ extends AbstractDriver
   public $heartbeat = 0;
   public $xMaxPriority = 5;
   public $maxAttemptCount = 10;
-
-  const DELIVERY_MODE_DURABLE = 2;
-  const DELAYED_EXCHANGE_NAME = 'delayed_exchange';
 
   /**
    * @var string
@@ -63,39 +63,128 @@ class RabbitMQ extends AbstractDriver
    */
   protected $payloadMap = [];
 
+  /**
+   * @inheritdoc
+   */
+  public static function getCode()
+  {
+    return self::DRIVER_CODE;
+  }
+
   public function init()
   {
     $this->logger = new DriverLogWriter([
       'loggerClass' => $this->loggerClass
     ]);
+
     $this->connect();
   }
 
-  private function isMaxAttemptExceeded($attempts)
+  /**
+   * @param $queueName
+   * @return QueuePayload
+   */
+  public function pop($queueName)
   {
-    return $attempts > $this->maxAttemptCount;
+    if (!$this->channel) {
+      return null;
+    }
+
+    // подключаемся к очереди
+    $this->declareChannel($queueName);
+
+    // получаем сообщение
+    $message = $this->channel->basic_get($queueName);
+    if ($message === null) {
+      return null;
+    }
+
+    // подтверждаем получение сообщения
+    $this->channel->basic_ack($message->delivery_info['delivery_tag']);
+    $this->logger->log('POP message :message', [':message' => $message->body]);
+
+    return QueuePayload::decode($message->body, $this->payloadMap);
   }
 
+  /**
+   * @return bool
+   */
+  public function close()
+  {
+    if (!$this->channel) {
+      return false;
+    }
+
+    try {
+      $this->channel->close();
+      $this->connection->close();
+    } catch (\Exception $e) {
+      $this->logger->log('Close error: :error', [':error' => $e->getMessage()]);
+
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * @param $queueName
+   * @return bool
+   */
+  public function isEmpty($queueName)
+  {
+    if (!$this->channel) {
+      return false;
+    }
+
+    // подключаемся к очереди
+    $this->declareChannel($queueName);
+
+    return !$this->channel->basic_get($queueName, true);
+  }
+
+  /**
+   * @param string $queueName
+   * @param QueuePayload $payload
+   * @return bool
+   */
   protected function pushInternal($queueName, QueuePayload $payload)
   {
-    if ($this->isMaxAttemptExceeded($payload->getAttempt())) return false;
+    if ($this->isMaxAttemptExceeded($payload->getAttempt())) {
+      return false;
+    }
+
+    if (!$this->channel) {
+      return false;
+    }
+
     try {
-      if (!$this->channel) return false;
+      // подключаемся к очереди
       $this->declareChannel($queueName);
+
       $encodedMessage = $payload->encode();
+
       $this->logger->log('PUSH message ' . $encodedMessage . ' delay:' . $payload->delay);
+
+      // билдим сообщение для очереди
       $amqpMessage = new AMQPMessage($encodedMessage, [
         'delivery_mode' => self::DELIVERY_MODE_DURABLE,
-        'priority' => $payload->payloadData->priority > $this->xMaxPriority
+        'priority' => $payload->data->priority > $this->xMaxPriority
           ? $this->xMaxPriority
-          : $payload->payloadData->priority,
+          : $payload->data->priority,
       ]);
 
       if ($payload->delay) {
+        // подключаемся к точке доступа с режимом отложенных сообщений
         $this->declareExchange(self::DELAYED_EXCHANGE_NAME);
+
+        // указываем время задержки
         $headers = new AMQPTable(['x-delay' => $payload->delay * 1000]);
         $amqpMessage->set('application_headers', $headers);
+
+        // привязываем очередь к точке доступа
         $this->channel->queue_bind($queueName, self::DELAYED_EXCHANGE_NAME, $queueName);
+        // публикуем сообщение с указанием привязанной точки доступа
         $this->channel->basic_publish($amqpMessage, self::DELAYED_EXCHANGE_NAME, $queueName);
       } else {
         $this->channel->basic_publish($amqpMessage, '', $queueName);
@@ -103,48 +192,10 @@ class RabbitMQ extends AbstractDriver
 
     } catch (\Exception $e) {
       $this->logger->log('Push error: :error', [':error' => $e->getMessage()]);
+
       return false;
     }
     return true;
-  }
-
-  public function pop($queueName)
-  {
-    if (!$this->channel) return false;
-    $this->declareChannel($queueName);
-    $message = $this->channel->basic_get($queueName);
-    if ($message === null) return null;
-    $this->channel->basic_ack($message->delivery_info['delivery_tag']);
-    $this->logger->log('POP message :message', [':message' => $message->body]);
-    return QueuePayload::decode($message->body, $this->payloadMap);
-  }
-
-  public function close()
-  {
-    try {
-      if (!$this->channel) return false;
-      $this->channel->close();
-      $this->connection->close();
-    } catch (\Exception $e) {
-      $this->logger->log('Close error: :error', [':error' => $e->getMessage()]);
-      return false;
-    }
-    return true;
-  }
-
-  public function isEmpty($queueName)
-  {
-    if (!$this->channel) return false;
-    $this->declareChannel($queueName);
-    return !$this->channel->basic_get($queueName, true);
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public function getDriverCode()
-  {
-    return self::DRIVER_CODE;
   }
 
   private function connect()
@@ -166,24 +217,32 @@ class RabbitMQ extends AbstractDriver
         $this->keepalive,
         $this->heartbeat
       );
+
       $this->channel = $this->connection->channel();
     } catch (\Exception $e) {
-      $this->logger->log('Connect error: :error', [':error' => $e->getMessage()]);
+      $this->logger->log('Connection error: :error', [':error' => $e->getMessage()]);
+
       return false;
     }
     return true;
   }
 
   /**
-   * @param $queueName
+   * Подключаемся к очереди, если такой ещё нет - создаем
+   * @param string $queueName название очереди
    * @return mixed|null
    */
   private function declareChannel($queueName)
   {
-    if (!$this->channel) return false;
-    return $this->channel->queue_declare($queueName, false, true, false, false, false, [
-      'x-max-priority' => ['I', $this->xMaxPriority]
-    ]);
+    return $this->channel->queue_declare(
+      $queueName, // название очереди
+      false, // passive
+      true, // durable
+      false, // exclusive
+      false, // auto_delete
+      false, // nowait
+      ['x-max-priority' => ['I', $this->xMaxPriority]] // arguments
+    );
   }
 
   /**
@@ -195,8 +254,26 @@ class RabbitMQ extends AbstractDriver
    */
   private function declareExchange($exchangeName)
   {
-    return $this->channel->exchange_declare($exchangeName, 'x-delayed-message', false, true, false, false, false, new AMQPTable(array(
-      "x-delayed-type" => "direct"
-    )));
+    return $this->channel->exchange_declare(
+      $exchangeName, // название точки доступа
+      'x-delayed-message', // type
+      false, // passive
+      true, // durable
+      false, // auto_delete
+      false, // internal
+      false, // nowait
+      new AMQPTable([
+        "x-delayed-type" => "direct"
+      ]) // arguments
+    );
+  }
+
+  /**
+   * @param $attempts
+   * @return bool
+   */
+  private function isMaxAttemptExceeded($attempts)
+  {
+    return $attempts > $this->maxAttemptCount;
   }
 }

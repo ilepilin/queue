@@ -7,17 +7,17 @@ use ReflectionClass;
 use ilepilin\queue\driver\DriverInterface;
 
 /**
- * Фасад для работы с очередями
+ * Фасад для работы с драйверами очередей
  * @package ilepilin\queue
+ *
+ * @property DriverInterface $driver
  */
 class QueueFacade
 {
   /**
    * @var DriverInterface[]
-   * @see setDriver()
-   * @see getDriver()
    */
-  private $drivers;
+  private $drivers = [];
 
   /**
    * QueueFacade constructor.
@@ -26,14 +26,16 @@ class QueueFacade
    */
   public function __construct($params = [])
   {
-    if ($params) foreach ($params as $property => $value) {
+    foreach ($params as $property => $value) {
       /** Если существует сеттер, то сетим через него */
-      $setter = 'set' . $property;
+      $setter = 'set' . ucfirst($property);
+
       if (method_exists($this, $setter)) {
         $this->$setter($value);
-      } else {
-        $this->{$property} = $value;
+        continue;
       }
+
+      $this->{$property} = $value;
     }
   }
 
@@ -44,7 +46,8 @@ class QueueFacade
    */
   public function __get($name)
   {
-    $getter = 'get' . $name;
+    $getter = 'get' . ucfirst($name);
+
     if (method_exists($this, $getter)) {
       return $this->$getter();
     } elseif (method_exists($this, 'set' . $name)) {
@@ -61,7 +64,8 @@ class QueueFacade
    */
   public function __set($name, $value)
   {
-    $setter = 'set' . $name;
+    $setter = 'set' . ucfirst($name);
+
     if (method_exists($this, $setter)) {
       $this->$setter($value);
     } elseif (method_exists($this, 'get' . $name)) {
@@ -72,10 +76,40 @@ class QueueFacade
   }
 
   /**
-   * @param $driver
+   * @param string $code
+   * @return DriverInterface
    * @throws Exception
    */
-  private function setDriver($driver)
+  public function getDriver($code = null)
+  {
+    if (!$code) {
+      return reset($this->drivers);
+    }
+
+    if (!isset($this->drivers[$code])) {
+      throw new Exception("Driver '$code' is not exists");
+    }
+
+    return $this->drivers[$code];
+  }
+
+  /**
+   * @param array $drivers
+   * @throws Exception
+   */
+  public function setDrivers(array $drivers)
+  {
+    foreach ($drivers as $driver) {
+      $this->setDriver($driver);
+    }
+  }
+
+  /**
+   * @param array|DriverInterface $driver
+   * @return DriverInterface
+   * @throws Exception
+   */
+  public function setDriver($driver)
   {
     // Если передали конфиг для драйвера
     if (is_array($driver)) {
@@ -89,38 +123,15 @@ class QueueFacade
       /** @var DriverInterface $driverObj */
       $driverObj = $this->buildDriver($class, $driver);
 
-      return $this->drivers[$driverObj->getDriverCode()] = $driverObj;
+      return $this->drivers[$driverObj->getCode()] = $driverObj;
     }
 
     // Если передали экземлпяр класса драйвера
-    if (!(new ReflectionClass($driver))->implementsInterface('\ilepilin\queue\driver\DriverInterface')) {
-      throw new Exception('The driver class must implement \ilepilin\queue\driver\DriverInterface.');
+    if (!($driver instanceof DriverInterface)) {
+      throw new Exception('The driver class must implement ' . DriverInterface::class);
     }
 
-    return $this->drivers[$driver->getDriverCode()] = $driver;
-  }
-
-  /**
-   * @param $code
-   * @return DriverInterface
-   */
-  public function getDriverByCode($code)
-  {
-    if (!isset($this->drivers[$code])) {
-      throw new Exception("Driver '$code' is not exists");
-    }
-    return $this->drivers[$code];
-  }
-
-  /**
-   * @param array $drivers
-   * @throws Exception
-   */
-  public function setDrivers(array $drivers)
-  {
-    foreach($drivers as $driver) {
-      $this->setDriver($driver);
-    }
+    return $this->drivers[$driver->getCode()] = $driver;
   }
 
   /**
@@ -132,17 +143,23 @@ class QueueFacade
   private function buildDriver($class, $config)
   {
     $reflection = new ReflectionClass($class);
-    if (!$reflection->implementsInterface('\ilepilin\queue\driver\DriverInterface')) {
-      throw new Exception('The driver class must implement \ilepilin\queue\driver\DriverInterface.');
+    if (!$reflection->implementsInterface(DriverInterface::class)) {
+      throw new Exception('The driver class must implement ' . DriverInterface::class);
     }
 
     if (!empty($config['logger'])) {
-      $config['logger'] = $this->buildLogger($config['logger']);
+      $logger = $this->buildLogger($config['logger']);
+      $logger && $config['logger'] = $logger;
     }
 
     return $reflection->newInstance($config);
   }
 
+  /**
+   * @param $logger
+   * @return object
+   * @throws Exception
+   */
   private function buildLogger($logger)
   {
     if (!is_array($logger)) {
@@ -157,6 +174,9 @@ class QueueFacade
     unset($logger['class']);
 
     $reflection = new ReflectionClass($class);
+    if (!$reflection->hasMethod('log')) {
+      throw new Exception('Logger class must have a "log" method.');
+    }
 
     return $reflection->newInstance($logger);
   }
@@ -166,18 +186,17 @@ class QueueFacade
    * @param BasePayload $payload
    * @param integer $delay
    * @return bool
-   * @throws \InvalidArgumentException
    */
   public function push($chanelName, BasePayload $payload, $delay = 0)
   {
-    // Перебираем драйверы до тех пор, пока не найдем рабочий
+    // Пытаемся отправить в очередь через все драйверы по порядку
     foreach ($this->drivers as $driver) {
-      $isPushed = $driver->push(
+      $success = $driver->push(
         $chanelName,
-        QueuePayload::createPayload($payload, $delay)
+        QueuePayload::createInstance($payload, $delay)
       );
 
-      if ($isPushed) {
+      if ($success) {
         return true;
       }
     }

@@ -5,13 +5,13 @@ namespace ilepilin\queue;
 interface PayloadInterface
 {
   /**
+   * @param array|string $data
+   * @return PayloadInterface
+   */
+  public static function createInstance($data);
+
+  /**
    * @return string
    */
   public function encode();
-
-  /**
-   * @param $data
-   * @return mixed
-   */
-  public static function decode($data);
 }

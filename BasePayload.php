@@ -2,12 +2,32 @@
 
 namespace ilepilin\queue;
 
-class BasePayload implements PayloadInterface
+abstract class BasePayload implements PayloadInterface
 {
-  /** @var  integer */
-
+  /**
+   * @var int
+   */
   public $priority = 0;
 
+  /**
+   * @param $data
+   * @return $this
+   */
+  public static function createInstance($data)
+  {
+    $class = get_called_class();
+
+    if (is_string($data)) {
+      $data = json_decode($data, true);
+    }
+
+    return new $class($data);
+  }
+
+  /**
+   * BasePayload constructor.
+   * @param array $params
+   */
   function __construct(array $params = [])
   {
     if ($params) foreach ($params as $property => $value) {
@@ -19,7 +39,6 @@ class BasePayload implements PayloadInterface
 
   public function init()
   {
-
   }
 
   /**
@@ -28,15 +47,5 @@ class BasePayload implements PayloadInterface
   public function encode()
   {
     return json_encode(get_object_vars($this), JSON_UNESCAPED_UNICODE);
-  }
-
-  /**
-   * @param $data
-   * @return $this
-   */
-  public static function decode($data)
-  {
-    $class = get_called_class();
-    return new $class(json_decode($data, true));
   }
 }

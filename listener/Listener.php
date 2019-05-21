@@ -3,10 +3,10 @@
 namespace ilepilin\queue\listener;
 
 use ilepilin\queue\QueuePayload;
-use ilepilin\queue\WorkerInterface;
 use ilepilin\queue\QueueFacade;
+use ilepilin\queue\WorkerInterface;
 
-class Listener implements ListenInterface
+class Listener implements ListenerInterface
 {
   /**
    * @var QueueFacade
@@ -30,33 +30,38 @@ class Listener implements ListenInterface
    */
   public function __construct(QueueFacade $facade, WorkerInterface $worker)
   {
-    $this->worker = $worker;
     $this->facade = $facade;
-    $this->chanelName = $worker->getChannelName();
+    $this->worker = $worker;
+    $this->chanelName = $worker::channelName();
   }
 
   /**
-   * Handle queue message messages
-   *
-   * Пытаемся разобрать очередь переданным драйвером
-   * Если не получается, пушим заново с помощью фасада (пушится всеми драйверами по очереди, пока не запушится)
+   * Слушает указанную очередь и, при наличии сообщений в ней, запускает их в обработку
    *
    * @param string $driverCode
-   * @return bool|null Return null, if no message in queue
-   * @throws \Exception
+   * @return bool
    */
-  public function handle($driverCode)
+  public function listen($driverCode)
   {
-    $driver = $this->facade->getDriverByCode($driverCode);
+    $driver = $this->facade->getDriver($driverCode);
 
     /** @var QueuePayload $payload */
     $payload = $driver->pop($this->chanelName);
-    if ($payload === null) return null;
-    if (!$workResult = $this->worker->work($payload->payloadData)) {
+
+    if ($payload === null) {
+      return false;
+    }
+
+    $result = $this->worker->work($payload->data);
+
+    if (!$result) {
       $payload->incrementAttempt();
       $payload->delay = 0; // При повторном выполнении откладывание задачи не нужно
-      $this->facade->push($this->chanelName, $payload);
+
+      // Пушим заново с помощью фасада, тк там могут быть резервные драйверы
+      $this->facade->push($this->chanelName, $payload->data);
     }
-    return $workResult;
+
+    return $result;
   }
 }

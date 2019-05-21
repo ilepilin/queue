@@ -4,21 +4,91 @@ namespace ilepilin\queue;
 
 class QueuePayload
 {
-  private $createdAt;
-  private $attempt;
-  /** @var  BasePayload */
-  public $payloadData;
-  /** @var int Время откладывания задачи */
+  /**
+   * @var string
+   */
+  public $class;
+
+  /**
+   * @var BasePayload
+   */
+  public $data;
+
+  /**
+   * @var int
+   */
   public $delay = 0;
 
-  public static function createPayload(PayloadInterface $payload, $delay)
+  /**
+   * @var int
+   */
+  private $attempt;
+
+  /**
+   * @var int
+   */
+  private $createdAt;
+
+  /**
+   * @param PayloadInterface $payload
+   * @param int $delay
+   * @return QueuePayload
+   */
+  public static function createInstance(PayloadInterface $payload, $delay = 0)
   {
-    $instance = new self();
-    $instance->attempt = 0;
-    $instance->createdAt = time();
-    $instance->payloadData = $payload;
-    $instance->delay = $delay;
+    return new static([
+      'class' => get_class($payload),
+      'data' => $payload,
+      'delay' => $delay,
+      'attempt' => 0,
+      'createdAt' => time(),
+    ]);
+  }
+
+  /**
+   * @param string $data
+   * @param array $map необходимо, если payload используется в другом приложении и имеет другие неймспейсы
+   * @return QueuePayload
+   */
+  public static function decode($data, $map = [])
+  {
+    $data = json_decode($data, true);
+
+    $instance = new static([
+      'delay' => $data['delay'],
+      'attempt' => $data['attempt'],
+      'createdAt' => $data['createdAt'],
+      'class' => $data['class'],
+    ]);
+
+    /** @var BasePayload $class */
+    $class = $map[$instance->class] ?? $instance->class;
+    if (!empty($map[$instance->class])) {
+      $class = $map[$instance->class];
+    }
+
+    $instance->data = $class::createInstance($data['data'] ?? []);
+
     return $instance;
+  }
+
+  /**
+   * QueuePayload constructor.
+   * @param array $params
+   */
+  public function __construct($params = [])
+  {
+    foreach ($params as $property => $value) {
+      $this->{$property} = $value;
+    }
+  }
+
+  /**
+   * @return string
+   */
+  public function __toString()
+  {
+    return $this->encode();
   }
 
   /**
@@ -26,47 +96,30 @@ class QueuePayload
    */
   public function encode()
   {
-    return json_encode([
-      'createdAt' => $this->createdAt,
-      'attempt' => $this->attempt,
+    return json_encode($this->toArray(), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * @return array
+   */
+  public function toArray()
+  {
+    return [
+      'class' => $this->class,
+      'data' => $this->data->encode(),
       'delay' => $this->delay,
-      'payload' => $this->payloadData->encode(),
-      'payloadClass' => get_class($this->payloadData),
-    ], JSON_UNESCAPED_UNICODE);
+      'attempt' => $this->attempt,
+      'createdAt' => $this->createdAt,
+    ];
   }
 
-  private static function createPayloadDataObject($payloadClassName, $payloadData)
-  {
-    $payloadData = json_decode($payloadData, true);
-    if (!$payloadData || !$payloadClassName) return null;
-
-    /** @var PayloadInterface $payloadObject */
-    return new $payloadClassName($payloadData);
-  }
-
-  public static function decode($data, $map = [])
-  {
-    $data = json_decode($data, true);
-    $instance = new self();
-    $instance->attempt = static::getValue($data, 'attempt');
-    $instance->createdAt = static::getValue($data, 'createdAt');
-    $instance->delay = static::getValue($data, 'delay');
-
-    $payloadClass = static::getValue($data, 'payloadClass');
-    if (!empty($map[$payloadClass])) {
-      $payloadClass = $map[$payloadClass];
-    }
-
-    $instance->payloadData = static::createPayloadDataObject(
-      $payloadClass,
-      static::getValue($data, 'payload')
-    );
-    return $instance;
-  }
-
+  /**
+   * @return $this
+   */
   public function incrementAttempt()
   {
     $this->attempt++;
+
     return $this;
   }
 
@@ -76,15 +129,5 @@ class QueuePayload
   public function getAttempt()
   {
     return $this->attempt;
-  }
-
-  public function __toString()
-  {
-    return $this->encode();
-  }
-
-  public static function getValue(array $array, $key, $default = null)
-  {
-    return array_key_exists($key, $array) ? $array[$key] : $default;
   }
 }

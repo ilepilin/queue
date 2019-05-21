@@ -6,6 +6,13 @@ use ilepilin\queue\QueuePayload;
 
 interface DriverInterface
 {
+
+  /**
+   * Уникальный код драйвера
+   * @return string
+   */
+  public static function getCode();
+
   /**
    * @param string $queueName
    * @param QueuePayload $payload
@@ -13,15 +20,19 @@ interface DriverInterface
    */
   public function push($queueName, QueuePayload $payload);
 
+  /**
+   * @param $queueName
+   */
   public function pop($queueName);
 
+  /**
+   * @return bool
+   */
   public function close();
 
-  public function isEmpty($queueName);
-
   /**
-   * Уникальный код драйвера
-   * @return string
+   * @param $queueName
+   * @return bool
    */
-  public function getDriverCode();
+  public function isEmpty($queueName);
 }
