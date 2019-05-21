@@ -1,0 +1,13 @@
+{
+  "name": "ilepilin/queue",
+  "description": "PHP AMQP facade",
+  "license": "proprietary",
+  "require": {
+    "php-amqplib/php-amqplib": "2.5.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "ilepilin\\queue\\": ""
+    }
+  }
+}
