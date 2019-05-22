@@ -38,10 +38,11 @@ class Listener implements ListenerInterface
   /**
    * Слушает указанную очередь и, при наличии сообщений в ней, запускает их в обработку
    *
-   * @param string $driverCode
+   * @param null|string $driverCode
+   * @param bool $recover
    * @return bool
    */
-  public function handle($driverCode)
+  public function handle($driverCode = null)
   {
     $driver = $this->facade->getDriver($driverCode);
 

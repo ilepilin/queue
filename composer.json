@@ -1,8 +1,9 @@
 {
   "name": "ilepilin/queue",
-  "description": "PHP AMQP facade",
+  "description": "PHP AMQP Facade",
   "license": "proprietary",
   "require": {
+    "php": ">=5.4.0",
     "php-amqplib/php-amqplib": "2.5.*"
   },
   "autoload": {

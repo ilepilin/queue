@@ -62,12 +62,12 @@ class QueuePayload
     ]);
 
     /** @var BasePayload $class */
-    $class = $map[$instance->class] ?? $instance->class;
+    $class = isset($map[$instance->class]) ? $map[$instance->class] : $instance->class;
     if (!empty($map[$instance->class])) {
       $class = $map[$instance->class];
     }
 
-    $instance->data = $class::createInstance($data['data'] ?? []);
+    $instance->data = $class::createInstance(isset($data['data']) ? $data['data'] : []);
 
     return $instance;
   }

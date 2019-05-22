@@ -91,7 +91,7 @@ $lastDbConnectTime = 0;
 $dbConnectPeriod = 15;
 
 while (!$stop) {
-  if ($listener->handle(\ilepilin\queue\driver\RabbitMQ::DRIVER_CODE) === null) {
+  if ($listener->handle(\ilepilin\queue\driver\RabbitMQ::getCode()) === null) {
     // для поддержания постоянного коннекта делаем запрос к бд каждые 15 сек
     if (time() > $lastDbConnectTime + $dbConnectPeriod) {
       $application->db->createCommand('SELECT 1')->execute();
