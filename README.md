@@ -88,7 +88,7 @@ composer update ilepilin/queue
                 'username' => 'project_user',
                 'password' => '******',
                 'host' => '127.0.0.1',
-                'port' => 3307 // если порт не стандартный
+                'port' => 3307, // если порт не стандартный
                 'dbname' => 'project_db',
                 'payloadMap' => [
                     'libs\queue\component1\Payload' => 'common\components\queue\component1\Payload',

@@ -103,7 +103,7 @@ class MySQL extends BaseDriver
    */
   public function getTableName()
   {
-    return $this->tableName;
+    return $this->tableName ?: self::TABLE_NAME;
   }
 
   /**
@@ -143,9 +143,9 @@ class MySQL extends BaseDriver
 
     $sql = <<<SQL
       INSERT INTO $tableName 
-      (channel_name, payload) 
+      (channel_name, message) 
       VALUES 
-      (:channelName, :payload)
+      (:channelName, :message)
 SQL;
 
     $query = $this->getPdo()->prepare($sql);
@@ -156,7 +156,7 @@ SQL;
 
     return $query->execute([
       ':channelName' => $queueName,
-      ':payload' => $message,
+      ':message' => $message,
     ]);
   }
 
