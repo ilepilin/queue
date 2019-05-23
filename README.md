@@ -39,7 +39,7 @@ PHP AMQP FACADE
 
 Для работы модуля требуется:
 * [rabbitmq-server](https://www.rabbitmq.com/download.html) - RabbitMQ сервер;
-* [amqp](https://pecl.php.net/package/amqp) - Расширение PHP для работы с AMQP сервером;
+* [mysql](https://www.php.net/manual/ru/book.mysql.php) - База данных MySQL;
 
 
 ### Установка

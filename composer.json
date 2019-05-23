@@ -1,7 +1,16 @@
 {
   "name": "ilepilin/queue",
   "description": "PHP AMQP Facade",
-  "license": "proprietary",
+  "homepage": "https://bitbucket.org/ilepilin/queue",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Igor Lepilin",
+      "email": "ilepilin@yandex.ru",
+      "role": "Developer"
+    }
+  ],
   "require": {
     "php": ">=5.4.0",
     "php-amqplib/php-amqplib": "2.5.*",
