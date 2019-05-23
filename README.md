@@ -50,13 +50,13 @@ PHP AMQP FACADE
 php composer.phar require ilepilin/queue
 ```
 
-Или добавить в файл composer.json и запустить обновление
+Или добавить строчку в файл composer.json и запустить обновление
 
 ```
 "ilepilin/queue": "1.*"
 ```
 ```bash
-composer update ilepilin/queue
+composer update ilepilin
 ```
 
 ### Конфигурирование
@@ -198,11 +198,11 @@ $channelNames = [
 /** @var \ilepilin\queue\QueueFacade $facade */
 $facade = Yii::$app->queue;
 
-$driver = $facade->getDriver(\ilepilin\queue\drivers\MySQL::getCode());
+$driver = $facade->getDriver(\ilepilin\queue\driver\MySQL::getCode());
 
 foreach ($channelNames as $channelName) {
     while ($message = $driver->pop($channelName)) {
-        $facade->push($channelName, $message->data)
+        $facade->push($channelName, $message->data, 300);
     }
 }
 

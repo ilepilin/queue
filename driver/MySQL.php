@@ -73,21 +73,25 @@ class MySQL extends BaseDriver
     $this->prepareTable();
   }
 
+  /**
+   * @param $queueName
+   * @return QueuePayload
+   */
   public function pop($queueName)
   {
-    $message = $this->fetch($queueName);
+    $row = $this->fetch($queueName);
 
-    if (!$message) {
-      return false;
+    if (!$row) {
+      return null;
     }
 
     try {
-      $data = json_decode($message['data'], true);
-      $id = $message['id'];
+      $data = $row['message'];
+      $id = $row['id'];
     } catch (Exception $e) {
-      $this->logger->log("Json decoding error: " . $e->getMessage());
+      $this->logger->log('Json decoding error: :error', [':error' => $e->getMessage()]);
 
-      return false;
+      return null;
     }
 
     $this->logger->log('POP message :message', [':message' => $data]);
@@ -143,9 +147,9 @@ class MySQL extends BaseDriver
 
     $sql = <<<SQL
       INSERT INTO $tableName 
-      (channel_name, message) 
+      (channel_name, message, delayed_to) 
       VALUES 
-      (:channelName, :message)
+      (:channelName, :message, :delayed_to)
 SQL;
 
     $query = $this->getPdo()->prepare($sql);
@@ -157,6 +161,7 @@ SQL;
     return $query->execute([
       ':channelName' => $queueName,
       ':message' => $message,
+      ':delayed_to' => time() + $payload->delay,
     ]);
   }
 
@@ -167,11 +172,13 @@ SQL;
   private function fetch($queueName)
   {
     $tableName = $this->getTableName();
+    $time = time();
 
     $sql = <<<SQL
       SELECT `id`, `message`
       FROM $tableName
       WHERE `channel_name` = :channelName
+        AND delayed_to < $time
       ORDER BY id
       LIMIT 1;
 SQL;
@@ -241,7 +248,8 @@ SQL;
       CREATE TABLE $tableName (
         id INT(10) UNSIGNED PRIMARY KEY AUTO_INCREMENT,
         channel_name VARCHAR(64) NOT NULL,
-        message TEXT
+        message TEXT,
+        delayed_to INT (10) UNSIGNED
       ) CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE=InnoDB
 ");
     } catch (\PDOException $e) {
