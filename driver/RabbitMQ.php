@@ -71,6 +71,17 @@ class RabbitMQ extends BaseDriver
     return self::DRIVER_CODE;
   }
 
+  /**
+   *
+   */
+  public function __destruct()
+  {
+    $this->close();
+  }
+
+  /**
+   * @inheritdoc
+   */
   public function init()
   {
     $this->logger = new DriverLogWriter([
@@ -164,7 +175,10 @@ class RabbitMQ extends BaseDriver
 
       $encodedMessage = $payload->encode();
 
-      $this->logger->log('PUSH message ' . $encodedMessage . ' delay:' . $payload->delay);
+      $this->logger->log('PUSH message :message delay: :delay', [
+        ':message' => $encodedMessage,
+        ':delay' => $payload->delay,
+      ]);
 
       // билдим сообщение для очереди
       $amqpMessage = new AMQPMessage($encodedMessage, [

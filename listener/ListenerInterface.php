@@ -4,5 +4,5 @@ namespace ilepilin\queue\listener;
 
 interface ListenerInterface
 {
-  public function handle($driverCode);
+  public function handle($driverCode = null);
 }

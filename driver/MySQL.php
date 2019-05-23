@@ -245,7 +245,7 @@ SQL;
       ) CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE=InnoDB
 ");
     } catch (\PDOException $e) {
-      $this->logger->log("Creating table error: " . $e->getMessage());
+      $this->logger->log('Creating table error: :message', [':message' => $e->getMessage()]);
 
       return;
     }

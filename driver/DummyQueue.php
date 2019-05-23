@@ -64,7 +64,7 @@ class DummyQueue extends BaseDriver
     }
 
     $message = $payload->encode();
-    $this->logger->log('PUSH message' . $message);
+    $this->logger->log('PUSH message :message', [':message' => $message]);
 
     if (!array_key_exists($queueName, self::$queues)) {
       self::$queues[$queueName] = [];
