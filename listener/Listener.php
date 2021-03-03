@@ -39,7 +39,7 @@ class Listener implements ListenerInterface
    * Слушает указанную очередь и, при наличии сообщений в ней, запускает их в обработку
    *
    * @param null|string $driverCode
-   * @return bool
+   * @return bool|null
    */
   public function handle($driverCode = null)
   {
@@ -49,7 +49,7 @@ class Listener implements ListenerInterface
     $payload = $driver->pop($this->chanelName);
 
     if ($payload === null) {
-      return false;
+      return null;
     }
 
     $result = $this->worker->work($payload->data);
@@ -58,8 +58,7 @@ class Listener implements ListenerInterface
       $payload->incrementAttempt();
       $payload->delay = 0; // При повторном выполнении откладывание задачи не нужно
 
-      // Пушим заново с помощью фасада, тк там могут быть резервные драйверы
-      $this->facade->push($this->chanelName, $payload->data);
+      $driver->push($this->chanelName, $payload);
     }
 
     return $result;
